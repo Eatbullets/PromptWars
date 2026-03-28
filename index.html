@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="IntentBridge — Gemini-powered multimodal intent extraction engine. Convert voice, images, and text into structured, actionable intelligence." />
+  <title>IntentBridge — Universal Intent Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ====== BACKGROUND PARTICLES ====== -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--2" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--3" aria-hidden="true"></div>
+
+  <!-- ====== APP SHELL ====== -->
+  <div id="app">
+    <!-- HEADER -->
+    <header id="app-header" class="header">
+      <div class="header__brand">
+        <div class="header__logo">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+            <path d="M12 20L20 12L28 20L20 28Z" fill="white" opacity="0.9"/>
+            <path d="M16 20L20 16L24 20L20 24Z" fill="url(#logo-grad)" />
+            <defs>
+              <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#a855f7"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <h1 class="header__title">IntentBridge</h1>
+          <p class="header__subtitle">Universal Intent Extraction Engine</p>
+        </div>
+      </div>
+      <div class="header__status">
+        <span class="status-dot" id="api-status"></span>
+        <span class="status-text" id="api-status-text">Checking API...</span>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content" class="main">
+      <!-- LEFT: INPUT PANEL -->
+      <section class="panel panel--input" aria-label="Input Panel">
+        <div class="panel__header">
+          <h2 class="panel__title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Multimodal Input
+          </h2>
+          <p class="panel__desc">Feed any combination of inputs — voice, images, camera, or text</p>
+        </div>
+
+        <!-- INPUT MODE TABS -->
+        <div class="input-tabs" id="input-tabs" role="tablist">
+          <button class="input-tab active" data-mode="text" role="tab" aria-selected="true" id="tab-text">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+            Text
+          </button>
+          <button class="input-tab" data-mode="voice" role="tab" aria-selected="false" id="tab-voice">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            Voice
+          </button>
+          <button class="input-tab" data-mode="upload" role="tab" aria-selected="false" id="tab-upload">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload
+          </button>
+          <button class="input-tab" data-mode="camera" role="tab" aria-selected="false" id="tab-camera">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Camera
+          </button>
+        </div>
+
+        <!-- INPUT AREAS -->
+        <div class="input-areas">
+          <!-- TEXT INPUT -->
+          <div class="input-area active" id="area-text">
+            <textarea 
+              id="text-input" 
+              class="text-input" 
+              placeholder="Describe any situation, paste medical records, news, incidents, requests...&#10;&#10;Examples:&#10;• 'My 78yr old mother fell in the bathroom, she's conscious but can't move her right leg'&#10;• 'Traffic accident on I-95 near exit 42, multiple vehicles, one overturned'&#10;• 'Patient presents with persistent headache, blurred vision, BP 180/110'&#10;• 'Severe thunderstorm warning issued for Delhi NCR region'"
+              rows="8"
+            ></textarea>
+            <div class="text-input__footer">
+              <span class="char-count" id="char-count">0 characters</span>
+            </div>
+          </div>
+
+          <!-- VOICE INPUT -->
+          <div class="input-area" id="area-voice">
+            <div class="voice-container">
+              <div class="voice-visualizer" id="voice-visualizer">
+                <div class="voice-ring voice-ring--1"></div>
+                <div class="voice-ring voice-ring--2"></div>
+                <div class="voice-ring voice-ring--3"></div>
+                <button class="voice-btn" id="voice-btn" aria-label="Start voice recording">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </button>
+              </div>
+              <p class="voice-status" id="voice-status">Click to start recording</p>
+              <div class="voice-timer" id="voice-timer" style="display:none;">
+                <span class="voice-timer__dot"></span>
+                <span class="voice-timer__time" id="voice-timer-time">00:00</span>
+              </div>
+              <div class="voice-playback" id="voice-playback" style="display:none;">
+                <div class="voice-playback__label">Recorded Audio</div>
+                <audio id="voice-audio" controls></audio>
+                <button class="btn btn--ghost voice-discard" id="voice-discard">Discard</button>
+              </div>
+              <p class="voice-hint" id="voice-hint">Audio sent directly to Gemini • Tone & emotion analysis enabled</p>
+            </div>
+          </div>
+
+          <!-- UPLOAD INPUT -->
+          <div class="input-area" id="area-upload">
+            <div 
+              class="upload-zone" 
+              id="upload-zone"
+              role="button"
+              tabindex="0"
+              aria-label="Upload an image file"
+            >
+              <input type="file" id="file-input" accept="image/*,.pdf" hidden />
+              <div class="upload-zone__content" id="upload-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p class="upload-zone__title">Drop image here or click to browse</p>
+                <p class="upload-zone__hint">Supports JPG, PNG, WebP, GIF • Max 20MB</p>
+              </div>
+              <div class="upload-preview" id="upload-preview" style="display:none;">
+                <img id="upload-preview-img" alt="Uploaded preview" />
+                <button class="upload-remove" id="upload-remove" aria-label="Remove uploaded file">✕</button>
+                <div class="upload-info" id="upload-info"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CAMERA INPUT -->
+          <div class="input-area" id="area-camera">
+            <div class="camera-container">
+              <div class="camera-viewport" id="camera-viewport">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+                <div class="camera-overlay" id="camera-overlay">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <p>Camera not active</p>
+                </div>
+                <img id="camera-snapshot" alt="Camera snapshot" style="display:none;" />
+              </div>
+              <div class="camera-controls">
+                <button class="btn btn--secondary" id="camera-start-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  Start Camera
+                </button>
+                <button class="btn btn--primary" id="camera-capture-btn" disabled>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                  Capture
+                </button>
+                <button class="btn btn--ghost" id="camera-retake-btn" style="display:none;">Retake</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATTACHED INPUTS SUMMARY -->
+        <div class="attachments" id="attachments" style="display:none;">
+          <div class="attachments__label">Attached Inputs</div>
+          <div class="attachments__list" id="attachments-list"></div>
+        </div>
+
+        <!-- ANALYZE BUTTON -->
+        <button class="analyze-btn" id="analyze-btn" disabled>
+          <span class="analyze-btn__text">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Extract Intent
+          </span>
+          <span class="analyze-btn__loading" style="display:none;">
+            <div class="spinner"></div>
+            Analyzing with Gemini...
+          </span>
+        </button>
+      </section>
+
+      <!-- RIGHT: RESULTS PANEL -->
+      <section class="panel panel--results" aria-label="Results Panel">
+        <div class="panel__header">
+          <h2 class="panel__title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Structured Output
+          </h2>
+          <p class="panel__desc">Gemini-extracted intent, urgency, entities & actions</p>
+        </div>
+
+        <!-- EMPTY STATE -->
+        <div class="results-empty" id="results-empty">
+          <div class="results-empty__icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <p class="results-empty__title">No analysis yet</p>
+          <p class="results-empty__desc">Provide input and click "Extract Intent" to see structured results</p>
+        </div>
+
+        <!-- ERROR STATE -->
+        <div class="results-error" id="results-error" style="display:none;">
+          <div class="results-error__icon">⚠️</div>
+          <p class="results-error__title" id="error-title">Analysis Failed</p>
+          <p class="results-error__desc" id="error-message"></p>
+        </div>
+
+        <!-- RESULTS CONTENT -->
+        <div class="results-content" id="results-content" style="display:none;">
+          <!-- Intent Card -->
+          <div class="result-card result-card--intent" id="intent-card">
+            <div class="result-card__header">
+              <span class="result-card__label">Primary Intent</span>
+              <span class="urgency-badge" id="urgency-badge">—</span>
+            </div>
+            <p class="result-card__value" id="intent-value"></p>
+            <div class="intent-meta">
+              <span class="meta-chip" id="category-chip">
+                <span class="meta-chip__label">Category</span>
+                <span class="meta-chip__value" id="category-value"></span>
+              </span>
+              <span class="meta-chip" id="confidence-chip">
+                <span class="meta-chip__label">Confidence</span>
+                <span class="meta-chip__value" id="confidence-value"></span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Entities Card -->
+          <div class="result-card result-card--entities">
+            <div class="result-card__header">
+              <span class="result-card__label">Extracted Entities</span>
+              <span class="result-card__count" id="entities-count">0</span>
+            </div>
+            <div class="entities-grid" id="entities-grid"></div>
+          </div>
+
+          <!-- Actions Card -->
+          <div class="result-card result-card--actions">
+            <div class="result-card__header">
+              <span class="result-card__label">Recommended Actions</span>
+              <span class="result-card__count" id="actions-count">0</span>
+            </div>
+            <div class="actions-list" id="actions-list"></div>
+          </div>
+
+          <!-- Context Flags -->
+          <div class="result-card result-card--flags" id="flags-card" style="display:none;">
+            <div class="result-card__header">
+              <span class="result-card__label">Context Flags</span>
+            </div>
+            <div class="flags-list" id="flags-list"></div>
+          </div>
+
+          <!-- Escalation Alert -->
+          <div class="escalation-alert" id="escalation-alert" style="display:none;">
+            <div class="escalation-alert__icon">🚨</div>
+            <div>
+              <strong>Escalation Required</strong>
+              <p id="escalation-reason"></p>
+            </div>
+          </div>
+
+          <!-- GCP Services Pipeline -->
+          <div class="result-card result-card--pipeline" id="pipeline-card">
+            <div class="result-card__header">
+              <span class="result-card__label">GCP Services Pipeline</span>
+              <span class="pipeline-latency" id="pipeline-latency"></span>
+            </div>
+            <div class="pipeline-list" id="pipeline-list"></div>
+          </div>
+
+          <!-- Raw JSON Toggle -->
+          <details class="raw-json-toggle">
+            <summary class="raw-json-summary">View Raw JSON Response</summary>
+            <pre class="raw-json" id="raw-json"></pre>
+          </details>
+
+          <!-- Timestamp -->
+          <div class="result-timestamp" id="result-timestamp"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <p>Powered by <strong>Google Gemini 2.5 Flash</strong> + <strong>Cloud Vision API</strong> • Built for societal impact</p>
+      <p class="footer__gcp">GCP Services: Gemini API (AI Studio) · Cloud Vision API · Cloud Speech-to-Text · Cloud Run · Cloud Storage</p>
+    </footer>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
