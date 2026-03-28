@@ -18,8 +18,8 @@
   --border-focus: rgba(99, 102, 241, 0.5);
 
   --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-secondary: #c9c9c9;
+  --text-muted: #c9c9c9;
   --text-accent: #a78bfa;
 
   /* Accent gradients */
@@ -77,6 +77,13 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* Universal Focus Ring for Accessibility */
+*:focus-visible {
+  outline: 3px solid var(--accent-1);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 html {
@@ -596,8 +603,8 @@ body {
   border-radius: 50%;
   border: none;
   background: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 0.8rem;
+  color: #d1d1d1;
+  font-size: 0.85rem;
   cursor: pointer;
   display: flex;
   align-items: center;

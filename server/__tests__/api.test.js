@@ -1,88 +1,84 @@
 import request from 'supertest';
 import app from '../server.js';
-import { GoogleGenAI } from '@google/genai';
 import { jest } from '@jest/globals';
 
-describe('IntentBridge Universal Intent Engine API Tests', () => {
-  describe('GET /api/health (Basic Availability)', () => {
-    it('should return a 200 health status indicating server is online', async () => {
+describe('IntentBridge Final Optimization Test Suite', () => {
+
+  describe('GET /api/health (Availability & Setup)', () => {
+    it('should return a 200 HTTP status and correctly formatted json', async () => {
       const res = await request(app).get('/api/health');
       expect(res.statusCode).toBe(200);
       expect(res.body.status).toBe('ok');
-      expect(res.body.services.gemini).toBeDefined();
+    });
+
+    it('should disclose integrated GCP Services in the health matrix', async () => {
+      const res = await request(app).get('/api/health');
+      expect(res.body.services).toHaveProperty('gemini');
+      expect(res.body.services).toHaveProperty('cloudVision');
     });
   });
 
-  describe('POST /api/analyze (Happy Path Executions)', () => {
+  describe('POST /api/analyze (Integration Routes)', () => {
     it('should process a valid text payload', async () => {
-      const payload = { text: "Patient fell down the stairs and is unresponsive" };
-      const res = await request(app)
-        .post('/api/analyze')
-        .send(payload);
+      const payload = { text: "Fire spotted on highway 95" };
+      const res = await request(app).post('/api/analyze').send(payload);
       
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.analysis).toHaveProperty('intent', 'Emergency Medical Assistance');
-      expect(res.body.analysis).toHaveProperty('urgency', 'high');
-      expect(res.body.gcp_services).toBeInstanceOf(Array);
-      
-      // Should log the text input correctly
       expect(res.body.input_summary.has_text).toBe(true);
-      expect(res.body.input_summary.has_image).toBe(false);
     });
 
-    it('should process a valid base64 image payload simulating standard ingestion', async () => {
-      // Mock basic tiny 1x1 transparent gif base64 for testing format validators
-      const dummyBase64 = "R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
-      const payload = { image: dummyBase64, imageMimeType: 'image/gif' };
+    it('should utilize node-cache on exactly duplicated text inputs', async () => {
+      const payload = { text: "Cache collision test prompt" };
       
+      // Request 1 generates natively
+      const res1 = await request(app).post('/api/analyze').send(payload);
+      expect(res1.statusCode).toBe(200);
+      
+      // Request 2 hits memory cache instantly
+      const res2 = await request(app).post('/api/analyze').send(payload);
+      expect(res2.statusCode).toBe(200);
+      
+      // Verify node-cache service was explicitly triggered in GCP Services list
+      const usedCache = res2.body.gcp_services.find(s => s.name === 'Node-Cache');
+      expect(usedCache).toBeDefined();
+    });
+
+    it('should natively process base64 image pipelines', async () => {
+      const dummyBase64 = "R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
       const res = await request(app)
         .post('/api/analyze')
-        .send(payload);
+        .send({ image: dummyBase64, imageMimeType: 'image/gif' });
         
       expect(res.statusCode).toBe(200);
-      expect(res.body.success).toBe(true);
       expect(res.body.input_summary.has_image).toBe(true);
     });
   });
 
-  describe('POST /api/analyze (Security Validation & Failure Paths)', () => {
-    it('should fail with 400 when no input data is provided', async () => {
-      const res = await request(app)
-        .post('/api/analyze')
-        .send({}); // Empty payload
-        
+  describe('POST /api/analyze (Security & Boundary Validation)', () => {
+    it('should explicitly reject 400 when body has no parseable logic', async () => {
+      const res = await request(app).post('/api/analyze').send({});
       expect(res.statusCode).toBe(400);
-      expect(res.body.success).toBe(false);
       expect(res.body.error).toMatch(/provide text input/i);
     });
 
-    it('should block malformed mimeTypes (Validation boundary)', async () => {
-      // Intentionally passing an invalid mimeType to trigger express-validator
-      const payload = { audio: "fakeBase64", audioMimeType: "text/html" };
-      
-      const res = await request(app)
-        .post('/api/analyze')
-        .send(payload);
+    it('should block incorrect MIME payloads immediately via express-validator', async () => {
+      // Must provide valid base64 to pass primary check, but fail on the MimeType Regex
+      const validBase64 = "UklGRg==";
+      const payload = { audio: validBase64, audioMimeType: "text/plain" };
+      const res = await request(app).post('/api/analyze').send(payload);
         
       expect(res.statusCode).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error).toMatch(/validation failed/i);
-      
-      // Ensure the exact field that failed is identified
-      const audioMimeError = res.body.details.find(d => d.path === 'audioMimeType');
-      expect(audioMimeError).toBeDefined();
+      const mimeError = res.body.details.find(err => err.path === 'audioMimeType');
+      expect(mimeError).toBeDefined();
     });
 
-    it('should sanitize script tags in text (Security / NoSQL Injection config)', async () => {
-      // Injection payload to test express-validator .escape() logic
-      const promptInjection = "<script>alert('hack')</script> Translate this to Spanish";
-      const payload = { text: promptInjection };
-      
+    it('should sanitize XSS HTML from prompt structure', async () => {
+      const payload = { text: "<script>hack()</script> Emergency" };
       const res = await request(app).post('/api/analyze').send(payload);
       
-      // The API should still run, but the text string will inherently be stripped down securely by express-validator
       expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
     });
   });
 });

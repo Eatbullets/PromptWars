@@ -12,6 +12,7 @@
     "client": "vite --port 5173"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^8.1.1",
     "@google-cloud/logging": "^11.2.1",
     "@google-cloud/translate": "^9.3.0",
     "@google/genai": "^1.0.0",
@@ -23,7 +24,9 @@
     "express-rate-limit": "^8.3.1",
     "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
-    "multer": "^1.4.5-lts.1"
+    "hpp": "^0.2.3",
+    "multer": "^1.4.5-lts.1",
+    "node-cache": "^5.1.2"
   },
   "devDependencies": {
     "jest": "^30.3.0",

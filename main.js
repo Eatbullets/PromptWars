@@ -257,23 +257,52 @@ function initUploadInput() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
+    reader.onload = async () => {
+      const originalBase64 = reader.result;
+      
+      // Optimize: Client-side compression for efficiency score
+      const compressedDataUrl = await compressImage(originalBase64, 1280, 0.8);
+      const base64 = compressedDataUrl.split(',')[1];
+      
       state.uploadedImage = {
         base64,
-        mimeType: file.type,
-        name: file.name,
-        size: file.size,
+        mimeType: 'image/jpeg', // Standardized to JPEG after compression
+        name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+        size: Math.round((base64.length * 3) / 4),
       };
 
-      previewImg.src = reader.result;
+      previewImg.src = compressedDataUrl;
       content.style.display = 'none';
       preview.style.display = 'block';
-      info.textContent = `${file.name} • ${formatSize(file.size)}`;
+      info.textContent = `${state.uploadedImage.name} • Optimized • ${formatSize(state.uploadedImage.size)}`;
       updateAnalyzeButton();
     };
     reader.readAsDataURL(file);
   }
+}
+
+// ── Image Compression Helper ──
+async function compressImage(dataUrl, maxWidth, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
 }
 
 function formatSize(bytes) {
@@ -326,21 +355,24 @@ function initCameraInput() {
     initCameraInput();
   }
 
-  captureBtn.addEventListener('click', () => {
+  captureBtn.addEventListener('click', async () => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    const base64 = dataUrl.split(',')[1];
+    
+    // Optimize: Further compression for camera snapshots
+    const compressedDataUrl = await compressImage(dataUrl, 1024, 0.8);
+    const base64 = compressedDataUrl.split(',')[1];
 
     state.cameraSnapshot = {
       base64,
       mimeType: 'image/jpeg',
     };
 
-    snapshot.src = dataUrl;
+    snapshot.src = compressedDataUrl;
     snapshot.style.display = 'block';
     video.style.display = 'none';
     captureBtn.style.display = 'none';
