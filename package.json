@@ -7,18 +7,27 @@
     "dev": "concurrently -k \"npm run server\" \"npm run client\"",
     "build": "vite build",
     "start": "NODE_ENV=production node server/server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "server": "node server/server.js",
     "client": "vite --port 5173"
   },
   "dependencies": {
+    "@google-cloud/logging": "^11.2.1",
+    "@google-cloud/translate": "^9.3.0",
     "@google/genai": "^1.0.0",
+    "compression": "^1.8.1",
     "concurrently": "^9.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.3.1",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2",
     "vite": "^6.4.1"
   }
 }

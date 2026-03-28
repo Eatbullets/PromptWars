@@ -3,6 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import multer from 'multer';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import { Logging } from '@google-cloud/logging';
+import { v2 as translateV2 } from '@google-cloud/translate';
+import { check, validationResult } from 'express-validator';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -11,6 +17,25 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+
+// ── Google Cloud Logging Telemetry ──
+const logging = new Logging();
+const telemetryLog = logging.log('intentbridge-api-telemetry');
+
+// ── Security & Efficiency Middlewares ──
+app.use(helmet({
+  contentSecurityPolicy: false // Disable CSP for local development frontend
+}));
+app.use(compression());
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+app.use('/api/', apiLimiter);
+
 const PORT = process.env.PORT || 8080;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -70,8 +95,26 @@ Always provide at least 2-3 recommended actions, ordered by priority.`;
 // ── Google Cloud Vision API ──
 // ══════════════════════════════════════════════════
 async function analyzeWithVision(base64Image, mimeType) {
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      success: true,
+      skipped: false,
+      labels: [{ description: 'Test Label', score: 0.9 }],
+      ocrText: '',
+      objects: [],
+      faces: [],
+      safeSearch: { adult: 'VERY_UNLIKELY', medical: 'VERY_UNLIKELY', racy: 'VERY_UNLIKELY', spoof: 'VERY_UNLIKELY', violence: 'VERY_UNLIKELY' },
+      labelCount: 1,
+      objectCount: 0,
+      faceCount: 0,
+      hasText: false,
+      latency: 12
+    };
+  }
+
+  // Graceful fallback if no GCP key provided
   if (!GCP_API_KEY) {
-    return { skipped: true, reason: 'No GCP_API_KEY configured' };
+    return { skipped: true, reason: 'GCP_API_KEY not configured' };
   }
 
   const startTime = Date.now();
@@ -197,6 +240,23 @@ function formatVisionContext(visionResult) {
 // ── Gemini Multimodal Analysis ──
 // ══════════════════════════════════════════════════
 async function analyzeWithGemini(textInput, imageData, imageMimeType, audioData, audioMimeType, visionContext) {
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      result: {
+        intent: "Emergency Medical Assistance",
+        category: "medical",
+        urgency: "high",
+        confidence: 0.95,
+        entities: [{ type: "condition", value: "fall", context: "stairs" }],
+        recommended_actions: [
+          { priority: 1, action: "Dispatch ambulance", responsible_party: "EMS", timeframe: "Immediate" }
+        ],
+        context_flags: ["Patient unconscious"]
+      },
+      latency: 42
+    };
+  }
+
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
   const startTime = Date.now();
 
@@ -282,7 +342,17 @@ async function analyzeWithGemini(textInput, imageData, imageMimeType, audioData,
 // ══════════════════════════════════════════════════
 // ── Main Analysis Endpoint ──
 // ══════════════════════════════════════════════════
-app.post('/api/analyze', upload.single('file'), async (req, res) => {
+app.post('/api/analyze', upload.single('file'), [
+  check('text').optional().isString().trim().escape(),
+  check('image').optional().isBase64(),
+  check('audio').optional().isBase64(),
+  check('imageMimeType').optional().isString().matches(/^image\//),
+  check('audioMimeType').optional().isString().matches(/^audio\//)
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, error: 'Input validation failed', details: errors.array() });
+  }
   try {
     const textInput = req.body.text || '';
     let imageData = null;
@@ -315,7 +385,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     }
 
     if (!textInput && !imageData && !audioData) {
-      return res.status(400).json({ error: 'Please provide text input, an image, audio, or a combination.' });
+      return res.status(400).json({ success: false, error: 'Please provide text input, an image, audio, or a combination.' });
     }
 
     // ── GCP Service Pipeline ──
@@ -414,6 +484,37 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
       reason: 'Upgrade path — serverless auto-scaling deployment',
     });
 
+    // ── Optional Translation API ──
+    try {
+      if (GCP_API_KEY && textInput && geminiResult.result?.recommended_actions?.length > 0) {
+        const translate = new translateV2.Translate({ key: GCP_API_KEY });
+        const [detection] = await translate.detect(textInput);
+        
+        if (detection.language !== 'en' && detection.confidence > 0.8) {
+          const transStart = Date.now();
+          const actionTexts = geminiResult.result.recommended_actions.map(a => a.action);
+          const [translations] = await translate.translate(actionTexts, detection.language);
+          
+          geminiResult.result.recommended_actions.forEach((a, i) => {
+            a.localized_action = translations[i]; // Store translated action back in JSON
+          });
+          
+          gcpServices.push({
+            name: 'Cloud Translation API',
+            icon: '🌐',
+            status: 'success',
+            latency: Date.now() - transStart,
+            details: {
+              sourceLanguage: detection.language,
+              note: `Translated ${translations.length} actions for localized emergency responders`
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Translation logic optional step failed:', e);
+    }
+
     // ── Response ──
     const totalLatency = gcpServices
       .filter(s => s.latency)
@@ -469,13 +570,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  🌉 IntentBridge API server running on http://localhost:${PORT}`);
-  console.log(`  📡 POST /api/analyze — Multimodal intent extraction`);
-  console.log(`  💚 GET  /api/health  — Health check`);
-  console.log(`\n  GCP Services:`);
-  console.log(`  ${GEMINI_API_KEY ? '✅' : '❌'} Gemini 2.5 Flash (AI Studio)`);
-  console.log(`  ${GCP_API_KEY ? '✅' : '⏭️ '} Cloud Vision API`);
-  console.log(`  ⏭️  Cloud Speech-to-Text (upgrade path)`);
-  console.log(`  ⏭️  Cloud Storage (upgrade path)\n`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`\n  🌉 IntentBridge API server running on http://localhost:${PORT}`);
+    console.log(`  📡 POST /api/analyze — Multimodal intent extraction`);
+    console.log(`  💚 GET  /api/health  — Health check`);
+    console.log(`\n  GCP Services:`);
+    console.log(`  ${GEMINI_API_KEY ? '✅' : '❌'} Gemini 2.5 Flash (AI Studio)`);
+    console.log(`  ${GCP_API_KEY ? '✅' : '⏭️ '} Cloud Vision API`);
+    console.log(`  ${GCP_API_KEY ? '✅' : '⏭️ '} Cloud Translation API`);
+    console.log(`  ⏭️  Cloud Speech-to-Text (upgrade path)`);
+    console.log(`  ⏭️  Cloud Storage (upgrade path)\n`);
+  });
+}
+
+export default app;
